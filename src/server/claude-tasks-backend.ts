@@ -6,7 +6,7 @@ import {
   updateKanbanCard,
 } from './kanban-backend'
 
-export type TaskColumn = 'backlog' | 'todo' | 'in_progress' | 'review' | 'blocked' | 'done'
+export type TaskColumn = 'backlog' | 'refinement' | 'ready' | 'inprogress' | 'review' | 'readytest' | 'testing' | 'readydeploy' | 'done' | 'todo' | 'in_progress' | 'blocked'
 export type TaskPriority = 'high' | 'medium' | 'low'
 
 export type ClaudeTaskRecord = {
@@ -51,9 +51,9 @@ function toIso(timestamp: number): string {
 function mapKanbanStatusToTaskColumn(status: string): TaskColumn {
   switch (status) {
     case 'ready':
-      return 'todo'
+      return 'ready'
     case 'running':
-      return 'in_progress'
+      return 'inprogress'
     case 'review':
       return 'review'
     case 'blocked':
@@ -68,12 +68,20 @@ function mapKanbanStatusToTaskColumn(status: string): TaskColumn {
 
 function mapTaskColumnToKanbanStatus(column: TaskColumn): 'backlog' | 'ready' | 'running' | 'review' | 'blocked' | 'done' {
   switch (column) {
+    case 'refinement':
+      return 'backlog'
+    case 'ready':
     case 'todo':
       return 'ready'
+    case 'inprogress':
     case 'in_progress':
+    case 'readytest':
+    case 'testing':
       return 'running'
     case 'review':
       return 'review'
+    case 'readydeploy':
+      return 'ready'
     case 'blocked':
       return 'blocked'
     case 'done':

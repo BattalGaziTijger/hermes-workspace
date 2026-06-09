@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { ClaudeTask, CreateTaskInput, TaskColumn, TaskPriority, TaskAssignee } from '@/lib/tasks-api'
+import type { ClaudeTask, CreateTaskInput, TaskColumn, TaskPriority, TaskLane, TaskAssignee } from '@/lib/tasks-api'
 import { COLUMN_LABELS, COLUMN_ORDER } from '@/lib/tasks-api'
 
 type Props = {
@@ -30,6 +30,8 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
   const [assignee, setAssignee] = useState<string>('')
   const [tags, setTags] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [lane, setLane] = useState<TaskLane>('feature')
+  const [isBlocked, setIsBlocked] = useState(false)
 
   useEffect(() => {
     if (task) {
@@ -40,6 +42,8 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
       setAssignee(task.assignee ?? '')
       setTags(task.tags.join(', '))
       setDueDate(task.due_date ?? '')
+      setLane(task.lane ?? 'feature')
+      setIsBlocked(task.is_blocked ?? false)
     } else {
       setTitle('')
       setDescription('')
@@ -48,6 +52,8 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
       setAssignee('')
       setTags('')
       setDueDate('')
+      setLane('feature')
+      setIsBlocked(false)
     }
   }, [task, open, defaultColumn])
 
@@ -62,6 +68,8 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
       assignee: assignee || null,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       due_date: dueDate || null,
+      lane,
+      is_blocked: isBlocked,
     })
   }
 
@@ -138,6 +146,34 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Type</label>
+                <select
+                  className={inputClass}
+                  style={{ colorScheme: 'dark' }}
+                  value={lane}
+                  onChange={e => setLane(e.target.value as TaskLane)}
+                >
+                  <option value="feature">Feature</option>
+                  <option value="bug">Bug</option>
+                </select>
+              </div>
+              <div className="flex flex-col justify-end">
+                <label className="flex items-center gap-2 cursor-pointer py-2">
+                  <input
+                    type="checkbox"
+                    checked={isBlocked}
+                    onChange={e => setIsBlocked(e.target.checked)}
+                    className="w-4 h-4 rounded accent-red-500"
+                  />
+                  <span className={cn(labelClass, 'mb-0', isBlocked && 'text-red-400')}>
+                    Blocked
+                  </span>
+                </label>
               </div>
             </div>
 

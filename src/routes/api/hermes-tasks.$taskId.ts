@@ -15,13 +15,10 @@ function jsonResponse(data: unknown, status = 200) {
 
 function isTaskColumn(value: unknown): value is TaskColumn {
   return (
-    value === 'backlog' ||
-    value === 'todo' ||
-    value === 'in_progress' ||
-    value === 'review' ||
-    value === 'blocked' ||
-    value === 'done' ||
-    value === 'deleted'
+    value === 'backlog' || value === 'refinement' || value === 'ready' ||
+    value === 'inprogress' || value === 'review' || value === 'readytest' ||
+    value === 'testing' || value === 'readydeploy' || value === 'done' ||
+    value === 'todo' || value === 'in_progress' || value === 'blocked' || value === 'deleted'
   )
 }
 
@@ -59,6 +56,8 @@ export const Route = createFileRoute('/api/hermes-tasks/$taskId')({
             due_date: body.due_date === null || typeof body.due_date === 'string' ? body.due_date : undefined,
             position: typeof body.position === 'number' ? body.position : undefined,
             session_id: body.session_id === null || typeof body.session_id === 'string' ? body.session_id : undefined,
+            lane: body.lane === 'bug' ? 'bug' : body.lane === 'feature' ? 'feature' : undefined,
+            is_blocked: typeof body.is_blocked === 'boolean' ? body.is_blocked : undefined,
           })
 
           if (!task) return jsonResponse({ error: 'Task not found' }, 404)

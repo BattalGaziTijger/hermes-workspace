@@ -82,8 +82,9 @@ export function resetBackendResolution(): void {
 
 // --- Types --------------------------------------------------------------
 
-export type TaskColumn = 'backlog' | 'todo' | 'in_progress' | 'review' | 'blocked' | 'done' | 'deleted'
+export type TaskColumn = 'backlog' | 'refinement' | 'ready' | 'inprogress' | 'review' | 'readytest' | 'testing' | 'readydeploy' | 'done' | 'todo' | 'in_progress' | 'blocked' | 'deleted'
 export type TaskPriority = 'high' | 'medium' | 'low'
+export type TaskLane = 'bug' | 'feature'
 
 export type ClaudeTask = {
   id: string
@@ -99,6 +100,8 @@ export type ClaudeTask = {
   created_at: string
   updated_at: string
   session_id?: string | null
+  lane?: TaskLane
+  is_blocked?: boolean
 }
 
 export type CreateTaskInput = {
@@ -110,6 +113,8 @@ export type CreateTaskInput = {
   tags?: Array<string>
   due_date?: string | null
   created_by?: string
+  lane?: TaskLane
+  is_blocked?: boolean
 }
 
 export type UpdateTaskInput = Partial<Omit<CreateTaskInput, 'created_by'>>
@@ -223,16 +228,22 @@ export async function moveTask(taskId: string, column: TaskColumn, movedBy = 'us
 // --- Display constants ---------------------------------------------------
 
 export const COLUMN_LABELS: Record<TaskColumn, string> = {
-  backlog: 'Triage',
+  backlog: 'Funnel / Backlog',
+  refinement: 'Ready for Refinement',
+  ready: 'Ready for Agent',
+  inprogress: 'In Progress',
+  review: 'Peer Review',
+  readytest: 'Ready for Test',
+  testing: 'In Testing',
+  readydeploy: 'Ready for Deploy',
+  done: 'Done',
   todo: 'Ready',
   in_progress: 'Running',
-  review: 'Review',
   blocked: 'Blocked',
-  done: 'Done',
   deleted: 'Deleted',
 }
 
-export const COLUMN_ORDER: Array<TaskColumn> = ['backlog', 'todo', 'in_progress', 'review', 'blocked', 'done']
+export const COLUMN_ORDER: Array<TaskColumn> = ['backlog', 'refinement', 'ready', 'inprogress', 'review', 'readytest', 'testing', 'readydeploy', 'done']
 
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   high: '#ef4444',
@@ -242,12 +253,38 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
 
 export const COLUMN_COLORS: Record<TaskColumn, string> = {
   backlog: '#6b7280',
+  refinement: '#8b5cf6',
+  ready: '#3b82f6',
+  inprogress: '#f97316',
+  review: '#a855f7',
+  readytest: '#06b6d4',
+  testing: '#0ea5e9',
+  readydeploy: '#10b981',
+  done: '#22c55e',
   todo: '#3b82f6',
   in_progress: '#f97316',
-  review: '#a855f7',
   blocked: '#ef4444',
-  done: '#22c55e',
   deleted: '#374151',
+}
+
+export const LANE_ORDER = ['bug', 'feature', 'blocked'] as const
+
+export const LANE_LABELS: Record<string, string> = {
+  bug: 'Bugs',
+  feature: 'Features',
+  blocked: 'Blocked',
+}
+
+export const LANE_COLORS: Record<string, string> = {
+  bug: '#fd7e14',
+  feature: '#3b82f6',
+  blocked: '#ef4444',
+}
+
+export function getTaskLane(task: ClaudeTask): 'bug' | 'feature' | 'blocked' {
+  if (task.is_blocked) return 'blocked'
+  if (task.lane === 'bug') return 'bug'
+  return 'feature'
 }
 
 export function isOverdue(task: ClaudeTask): boolean {

@@ -2,6 +2,12 @@ import { cn } from '@/lib/utils'
 import type { ClaudeTask } from '@/lib/tasks-api'
 import { PRIORITY_COLORS, isOverdue } from '@/lib/tasks-api'
 
+const LANE_BADGE_STYLES = {
+  bug: 'bg-orange-950/60 text-orange-300 border border-orange-800/50',
+  feature: 'bg-blue-950/60 text-blue-300 border border-blue-800/50',
+  blocked: 'bg-red-950/60 text-red-300 border border-red-800/50',
+} as const
+
 type Props = {
   task: ClaudeTask
   assigneeLabels?: Record<string, string>
@@ -33,10 +39,10 @@ export function TaskCard({ task, assigneeLabels = {}, onClick, onDragStart, isDr
       className={cn(
         'relative rounded-lg border p-3 cursor-pointer transition-all select-none',
         'bg-[var(--theme-card)] border-[var(--theme-border)]',
-        'hover:border-[var(--theme-accent)]',
+        task.is_blocked ? 'border-red-800/60' : 'hover:border-[var(--theme-accent)]',
         isDragging ? 'opacity-40 rotate-1 shadow-2xl' : 'hover:shadow-[0_4px_16px_rgba(0,0,0,0.35)]',
       )}
-      style={{ borderLeftWidth: 3, borderLeftColor: priorityColor }}
+      style={{ borderLeftWidth: 3, borderLeftColor: task.is_blocked ? '#dc2626' : priorityColor }}
     >
       {/* Priority dot in top-right */}
       <span
@@ -44,6 +50,19 @@ export function TaskCard({ task, assigneeLabels = {}, onClick, onDragStart, isDr
         style={{ background: priorityColor }}
         title={`Priority: ${task.priority}`}
       />
+
+      <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+        {task.lane === 'bug' && (
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', LANE_BADGE_STYLES.bug)}>
+            🐛 Bug
+          </span>
+        )}
+        {task.is_blocked && (
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', LANE_BADGE_STYLES.blocked)}>
+            🚧 Blocked
+          </span>
+        )}
+      </div>
 
       <p className="text-sm font-medium text-[var(--theme-text)] leading-snug mb-1 line-clamp-2 pr-4">
         {task.title}

@@ -8,24 +8,24 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, CheckListIcon, RefreshIcon } from '@hugeicons/core-free-icons'
 import { TaskCard } from './task-card'
 import { TaskDialog } from './task-dialog'
-import type { ClaudeTask, CreateTaskInput, TaskAssignee, TaskColumn } from '@/lib/tasks-api'
+import type { ClaudeTask, CreateTaskInput, TaskAssignee, TaskColumn, TaskLane } from '@/lib/tasks-api'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import {
   COLUMN_COLORS,
   COLUMN_LABELS,
   COLUMN_ORDER,
+  LANE_COLORS,
+  LANE_LABELS,
+  LANE_ORDER,
   createTask,
   deleteTask,
   fetchAssignees,
   fetchTasks,
-  isOverdue,
-  launchSession,
-  linkSession,
+  getTaskLane,
   moveTask,
   updateTask,
 } from '@/lib/tasks-api'
-import { stashPendingSend } from '@/screens/chat/pending-send'
 
 const QUERY_KEY = ['claude', 'tasks'] as const
 const ASSIGNEES_KEY = ['claude', 'tasks', 'assignees'] as const
@@ -53,11 +53,10 @@ export function TasksScreen() {
   const [createColumn, setCreateColumn] = useState<TaskColumn>('backlog')
   const [editingTask, setEditingTask] = useState<ClaudeTask | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [dragOverColumn, setDragOverColumn] = useState<TaskColumn | null>(null)
-  const [showDone, setShowDone] = useState(false)
+  const [dragOver, setDragOver] = useState<{ col: TaskColumn; lane: string } | null>(null)
+  const [showDone, setShowDone] = useState(true)
 
   const search = useSearch({ from: '/tasks' })
-  const navigate = useNavigate()
   const initialAssignee = typeof search.assignee === 'string' ? search.assignee : null
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(initialAssignee)
 
@@ -87,24 +86,39 @@ export function TasksScreen() {
 
   const tasks = tasksQuery.data ?? []
 
-  const tasksByColumn = useMemo(() => {
-    const map: Record<TaskColumn, Array<ClaudeTask>> = {
-      backlog: [], todo: [], in_progress: [], review: [], blocked: [], done: [], deleted: [],
+  const tasksByLaneAndColumn = useMemo(() => {
+    const map: Record<string, Record<TaskColumn, Array<ClaudeTask>>> = {
+      bug: {} as Record<TaskColumn, Array<ClaudeTask>>,
+      feature: {} as Record<TaskColumn, Array<ClaudeTask>>,
+      blocked: {} as Record<TaskColumn, Array<ClaudeTask>>,
+    }
+    for (const lane of LANE_ORDER) {
+      for (const col of COLUMN_ORDER) {
+        map[lane][col] = []
+      }
     }
     for (const t of tasks) {
       if (assigneeFilter && t.assignee !== assigneeFilter) continue
-      map[t.column].push(t)
+      const col: TaskColumn =
+        t.column === 'todo' ? 'refinement' :
+        t.column === 'in_progress' ? 'inprogress' :
+        t.column
+      if (!COLUMN_ORDER.includes(col)) continue
+      const lane = getTaskLane(t)
+      map[lane][col].push(t)
     }
-    for (const col of COLUMN_ORDER) {
-      map[col].sort((a, b) => a.position - b.position)
+    for (const lane of LANE_ORDER) {
+      for (const col of COLUMN_ORDER) {
+        map[lane][col].sort((a, b) => a.position - b.position)
+      }
     }
     return map
   }, [tasks, assigneeFilter])
 
   const stats = useMemo(() => {
     const total = tasks.length
-    const running = tasks.filter(t => t.column === 'in_progress').length
-    const blocked = tasks.filter(t => t.column === 'blocked').length
+    const running = tasks.filter(t => t.column === 'inprogress' || t.column === 'in_progress' || t.column === 'testing').length
+    const blocked = tasks.filter(t => t.is_blocked).length
     const done = tasks.filter(t => t.column === 'done').length
     const overdue = tasks.filter(t => isOverdue(t) && t.column !== 'done').length
     const completion = total > 0 ? Math.round((done / total) * 100) : 0
@@ -123,7 +137,10 @@ export function TasksScreen() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: string; input: CreateTaskInput }) => updateTask(id, input),
-    onSuccess: () => { invalidate(); toast('Task updated'); setEditingTask(null) },
+    onSuccess: (_, { id }) => {
+      invalidate()
+      if (editingTask?.id === id) { toast('Task updated'); setEditingTask(null) }
+    },
     onError: (e) => toast(e instanceof Error ? e.message : 'Failed to update task', { type: 'error' }),
   })
 
@@ -144,44 +161,53 @@ export function TasksScreen() {
     setDraggingId(taskId)
   }
 
-  function handleDragOver(e: React.DragEvent, col: TaskColumn) {
+  function handleDragOver(e: React.DragEvent, col: TaskColumn, lane: string) {
     e.preventDefault()
-    setDragOverColumn(col)
+    setDragOver({ col, lane })
   }
 
-  function handleDrop(e: React.DragEvent, targetColumn: TaskColumn) {
+  function handleDrop(e: React.DragEvent, targetColumn: TaskColumn, targetLane: string) {
     e.preventDefault()
     const taskId = e.dataTransfer.getData('text/plain')
     const task = tasks.find(t => t.id === taskId)
-    if (!task || task.column === targetColumn) {
-      setDraggingId(null)
-      setDragOverColumn(null)
-      return
-    }
-    // Hybrid autonomy: if a human reviewer is configured, only they can move
-    // tasks into the 'done' column — agents may move to 'review' at most.
+    if (!task) { setDraggingId(null); setDragOver(null); return }
+
     if (targetColumn === 'done' && humanReviewer) {
       toast(`Only ${humanReviewer} can mark tasks as done`, { type: 'error' })
-      setDraggingId(null)
-      setDragOverColumn(null)
-      return
+      setDraggingId(null); setDragOver(null); return
     }
-    moveMutation.mutate({ id: taskId, column: targetColumn })
-    setDraggingId(null)
-    setDragOverColumn(null)
+
+    const laneUpdates: Partial<{ lane: TaskLane; is_blocked: boolean }> = {}
+    if (targetLane === 'blocked') {
+      laneUpdates.is_blocked = true
+    } else {
+      laneUpdates.is_blocked = false
+      laneUpdates.lane = targetLane as TaskLane
+    }
+
+    const columnChanged = task.column !== targetColumn
+    const laneChanged = getTaskLane(task) !== targetLane
+
+    if (!columnChanged && !laneChanged) { setDraggingId(null); setDragOver(null); return }
+
+    if (columnChanged) {
+      moveMutation.mutate({ id: taskId, column: targetColumn })
+    }
+    if (laneChanged) {
+      updateMutation.mutate({ id: taskId, input: laneUpdates as Parameters<typeof updateTask>[1] })
+    }
+    setDraggingId(null); setDragOver(null)
   }
 
   function handleDragEnd() {
-    setDraggingId(null)
-    setDragOverColumn(null)
+    setDraggingId(null); setDragOver(null)
   }
 
   const visibleColumns = showDone ? COLUMN_ORDER : COLUMN_ORDER.filter(c => c !== 'done')
-  const colMaxWidth = Math.floor(1200 / visibleColumns.length)
 
   return (
     <div className="min-h-full overflow-y-auto bg-surface text-ink">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 px-4 py-6 pb-[calc(var(--tabbar-h,80px)+1.5rem)] sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full flex-col gap-5 px-4 py-6 pb-[calc(var(--tabbar-h,80px)+1.5rem)] sm:px-6 lg:px-8">
       {/* Header */}
       <header className="rounded-2xl border border-primary-200 bg-primary-50/85 p-4 backdrop-blur-xl">
         <div className="flex items-center justify-between">
@@ -255,113 +281,138 @@ export function TasksScreen() {
         </p>
       </header>
 
-      {/* Board */}
+      {/* Board — matrix: swim lane rows × columns */}
       <div
-        className="mx-auto flex w-full max-w-[1200px] flex-1 gap-3 overflow-x-auto overflow-y-hidden p-4 min-h-0"
+        className="w-full overflow-x-auto rounded-2xl"
         style={{ boxShadow: 'inset 0 8px 24px rgba(0,0,0,0.2)' }}
       >
-        {visibleColumns.map((col) => {
-          const colTasks = tasksByColumn[col]
-          const colColor = COLUMN_COLORS[col]
-          const isDragOver = dragOverColumn === col
-
-          return (
-            <div
-              key={col}
-              className={cn(
-                'flex flex-col rounded-xl border min-w-[180px] w-full shrink-0 flex-1',
-                'bg-[var(--theme-card)] border-[var(--theme-border)]',
-                'transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.25)]',
-                isDragOver && 'border-[var(--theme-accent)] bg-[var(--theme-hover)]',
-              )}
-              style={{ maxWidth: colMaxWidth }}
-              onDragOver={e => handleDragOver(e, col)}
-              onDrop={e => handleDrop(e, col)}
-              onDragLeave={() => setDragOverColumn(null)}
-            >
-              {/* Column header */}
+        {/* Column header row */}
+        <div className="flex min-w-max sticky top-0 z-10 bg-[var(--theme-bg)]">
+          {/* Spacer for lane label column */}
+          <div className="w-[90px] shrink-0 border-b border-r border-[var(--theme-border)]" />
+          {visibleColumns.map(col => {
+            const colColor = COLUMN_COLORS[col]
+            return (
               <div
-                className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--theme-border)] rounded-t-xl"
+                key={col}
+                className="flex-1 min-w-[130px] flex items-center justify-between px-2 py-2 border-b border-r border-[var(--theme-border)]"
                 style={{ borderTopWidth: 2, borderTopColor: colColor, borderTopStyle: 'solid' }}
               >
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colColor }} />
-                  <span className="text-xs font-semibold text-[var(--theme-text)]">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: colColor }} />
+                  <span className="text-[10px] font-semibold text-[var(--theme-text)] truncate leading-tight">
                     {COLUMN_LABELS[col]}
-                  </span>
-                  <span className="text-xs text-[var(--theme-muted)]">
-                    ({tasksQuery.isFetching && tasksQuery.data === undefined ? '…' : colTasks.length})
                   </span>
                 </div>
                 <button
                   onClick={() => { setCreateColumn(col); setShowCreate(true) }}
-                  className="rounded p-0.5 hover:bg-[var(--theme-hover)] transition-colors"
+                  className="rounded p-0.5 hover:bg-[var(--theme-hover)] transition-colors shrink-0 ml-1"
                   title={`Add to ${COLUMN_LABELS[col]}`}
                 >
-                  <HugeiconsIcon icon={Add01Icon} size={14} className="text-[var(--theme-muted)]" />
+                  <HugeiconsIcon icon={Add01Icon} size={12} className="text-[var(--theme-muted)]" />
                 </button>
               </div>
+            )
+          })}
+        </div>
 
-              {/* Cards */}
-              <div className="flex flex-col gap-2 p-2 flex-1 overflow-y-auto">
-                {tasksQuery.isError ? (
-                  <motion.div
-                    key="error"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center justify-center py-8 gap-2 text-red-400"
-                  >
-                    <p className="text-xs font-medium">Failed to load tasks</p>
-                    <button
-                      onClick={() => tasksQuery.refetch()}
-                      className="text-xs text-[var(--theme-accent)] hover:underline"
-                    >
-                      Retry
-                    </button>
-                  </motion.div>
-                ) : tasksQuery.isLoading ? (
-                  <>
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
-                  </>
-                ) : (
-                  <AnimatePresence initial={false}>
-                    {colTasks.length === 0 ? (
-                      <motion.div
-                        key="empty"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex flex-col items-center justify-center py-8 gap-2 text-[var(--theme-muted)] opacity-60"
-                      >
-                        <HugeiconsIcon icon={CheckListIcon} size={22} />
-                        <p className="text-xs font-medium">No tasks</p>
-                        <p className="text-[10px]">Drop here or click + to add</p>
-                      </motion.div>
-                    ) : (
-                      colTasks.map(task => (
-                        <motion.div
-                          key={task.id}
-                          layout
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          onDragEnd={handleDragEnd}
-                        >
-                          <TaskCard
-                            task={task}
-                            assigneeLabels={assigneeLabels}
-                            isDragging={draggingId === task.id}
-                            onDragStart={e => handleDragStart(e, task.id)}
-                            onClick={() => setEditingTask(task)}
-                          />
-                        </motion.div>
-                      ))
-                    )}
-                  </AnimatePresence>
-                )}
+        {/* Lane rows */}
+        {LANE_ORDER.map(lane => {
+          const laneColor = LANE_COLORS[lane]
+          const laneLabel = LANE_LABELS[lane]
+          const laneRowBg =
+            lane === 'bug' ? 'rgba(253,126,20,0.04)' :
+            lane === 'blocked' ? 'rgba(239,68,68,0.04)' :
+            'transparent'
+
+          return (
+            <div
+              key={lane}
+              className="flex min-w-max border-b border-[var(--theme-border)]"
+              style={{ background: laneRowBg }}
+            >
+              {/* Lane label */}
+              <div
+                className="w-[90px] shrink-0 flex flex-col items-center justify-center gap-1 py-3 px-1 border-r border-[var(--theme-border)] sticky left-0 z-10"
+                style={{
+                  background: laneRowBg || 'var(--theme-bg)',
+                  borderLeftWidth: 3,
+                  borderLeftColor: laneColor,
+                  borderLeftStyle: 'solid',
+                }}
+              >
+                <span className="text-base leading-none">
+                  {lane === 'bug' ? '🐛' : lane === 'blocked' ? '🚧' : '✨'}
+                </span>
+                <span
+                  className="text-[10px] font-bold uppercase tracking-widest text-center leading-tight"
+                  style={{ color: laneColor }}
+                >
+                  {laneLabel}
+                </span>
               </div>
+
+              {/* Cells per column */}
+              {visibleColumns.map(col => {
+                const cellTasks = tasksByLaneAndColumn[lane]?.[col] ?? []
+                const isOver = dragOver?.col === col && dragOver?.lane === lane
+                return (
+                  <div
+                    key={col}
+                    className={cn(
+                      'flex-1 min-w-[130px] min-h-[120px] flex flex-col gap-1.5 p-1.5 border-r border-[var(--theme-border)]',
+                      'transition-colors',
+                      isOver && 'bg-[var(--theme-hover)] outline outline-2 outline-dashed outline-[var(--theme-accent)] outline-offset-[-2px]',
+                    )}
+                    onDragOver={e => handleDragOver(e, col, lane)}
+                    onDrop={e => handleDrop(e, col, lane)}
+                    onDragLeave={() => setDragOver(null)}
+                  >
+                    {tasksQuery.isError ? (
+                      <div className="flex flex-col items-center justify-center py-4 gap-1 text-red-400">
+                        <p className="text-[10px]">Error</p>
+                        <button onClick={() => tasksQuery.refetch()} className="text-[10px] underline">Retry</button>
+                      </div>
+                    ) : tasksQuery.isLoading ? (
+                      <SkeletonCard />
+                    ) : (
+                      <AnimatePresence initial={false}>
+                        {cellTasks.length === 0 ? (
+                          <motion.div
+                            key="empty"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex flex-col items-center justify-center py-4 gap-1 text-[var(--theme-muted)] opacity-40"
+                          >
+                            <HugeiconsIcon icon={CheckListIcon} size={16} />
+                            <p className="text-[10px]">Drop here</p>
+                          </motion.div>
+                        ) : (
+                          cellTasks.map(task => (
+                            <motion.div
+                              key={task.id}
+                              layout
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              onDragEnd={handleDragEnd}
+                            >
+                              <TaskCard
+                                task={task}
+                                assigneeLabels={assigneeLabels}
+                                isDragging={draggingId === task.id}
+                                onDragStart={e => handleDragStart(e, task.id)}
+                                onClick={() => setEditingTask(task)}
+                              />
+                            </motion.div>
+                          ))
+                        )}
+                      </AnimatePresence>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )
         })}

@@ -3,8 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 
-export type TaskColumn = 'backlog' | 'todo' | 'in_progress' | 'review' | 'blocked' | 'done' | 'deleted'
+export type TaskColumn = 'backlog' | 'refinement' | 'ready' | 'inprogress' | 'review' | 'readytest' | 'testing' | 'readydeploy' | 'done' | 'todo' | 'in_progress' | 'blocked' | 'deleted'
 export type TaskPriority = 'high' | 'medium' | 'low'
+export type TaskLane = 'bug' | 'feature'
 
 export type TaskRecord = {
   id: string
@@ -20,6 +21,8 @@ export type TaskRecord = {
   created_at: string
   updated_at: string
   session_id?: string | null
+  lane?: TaskLane
+  is_blocked?: boolean
 }
 
 type TaskFile = { tasks: TaskRecord[] }
@@ -76,6 +79,8 @@ function normalizeTask(task: Partial<TaskRecord> & Pick<TaskRecord, 'id' | 'titl
     created_at: task.created_at,
     updated_at: task.updated_at,
     session_id: task.session_id ?? null,
+    lane: task.lane ?? 'feature',
+    is_blocked: task.is_blocked ?? false,
   }
 }
 
@@ -116,6 +121,8 @@ export function createTask(input: CreateTaskInput): TaskRecord {
     created_by: typeof input.created_by === 'string' && input.created_by ? input.created_by : 'user',
     created_at: now,
     updated_at: now,
+    lane: input.lane,
+    is_blocked: input.is_blocked,
   })
   file.tasks.push(task)
   writeTaskFile({ tasks: file.tasks.map(normalizeTask) })

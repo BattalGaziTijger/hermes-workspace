@@ -12,13 +12,10 @@ function jsonResponse(data: unknown, status = 200) {
 
 function isTaskColumn(value: unknown): value is TaskColumn {
   return (
-    value === 'backlog' ||
-    value === 'todo' ||
-    value === 'in_progress' ||
-    value === 'review' ||
-    value === 'blocked' ||
-    value === 'done' ||
-    value === 'deleted'
+    value === 'backlog' || value === 'refinement' || value === 'ready' ||
+    value === 'inprogress' || value === 'review' || value === 'readytest' ||
+    value === 'testing' || value === 'readydeploy' || value === 'done' ||
+    value === 'todo' || value === 'in_progress' || value === 'blocked' || value === 'deleted'
   )
 }
 
@@ -67,6 +64,8 @@ export const Route = createFileRoute('/api/hermes-tasks')({
             due_date: typeof body.due_date === 'string' ? body.due_date : null,
             position: typeof body.position === 'number' ? body.position : 0,
             created_by: typeof body.created_by === 'string' ? body.created_by : 'user',
+            lane: body.lane === 'bug' ? 'bug' : body.lane === 'feature' ? 'feature' : undefined,
+            is_blocked: typeof body.is_blocked === 'boolean' ? body.is_blocked : undefined,
           })
 
           return jsonResponse({ task }, 201)
