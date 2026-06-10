@@ -137,14 +137,19 @@ export function updateTask(taskId: string, updates: UpdateTaskInput): TaskRecord
   if (index === -1) return null
 
   const current = normalizeTask(file.tasks[index] as TaskRecord)
+  // Strip undefined values so a targeted PATCH (e.g. only `result`) never
+  // overwrites existing fields with undefined → '' via normalizeTask.
+  const defined = Object.fromEntries(
+    Object.entries(updates).filter(([, v]) => v !== undefined),
+  ) as UpdateTaskInput
   const next = normalizeTask({
     ...current,
-    ...updates,
+    ...defined,
     id: current.id,
     created_by: current.created_by,
     created_at: current.created_at,
     updated_at: new Date().toISOString(),
-    title: typeof updates.title === 'string' ? updates.title : current.title,
+    title: typeof defined.title === 'string' ? defined.title : current.title,
   })
 
   file.tasks[index] = next
