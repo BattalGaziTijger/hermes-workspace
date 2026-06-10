@@ -49,6 +49,7 @@ export const Route = createFileRoute('/api/hermes-tasks/$taskId')({
           const task = updateTask(params.taskId, {
             title: typeof body.title === 'string' ? body.title : undefined,
             description: typeof body.description === 'string' ? body.description : undefined,
+            result: typeof body.result === 'string' ? body.result : undefined,
             column: isTaskColumn(body.column) ? body.column : undefined,
             priority: isTaskPriority(body.priority) ? body.priority : undefined,
             assignee: body.assignee === null || typeof body.assignee === 'string' ? body.assignee : undefined,

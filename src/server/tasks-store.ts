@@ -11,6 +11,7 @@ export type TaskRecord = {
   id: string
   title: string
   description: string
+  result?: string
   column: TaskColumn
   priority: TaskPriority
   assignee: string | null
@@ -69,6 +70,7 @@ function normalizeTask(task: Partial<TaskRecord> & Pick<TaskRecord, 'id' | 'titl
     id: task.id,
     title: task.title,
     description: task.description ?? '',
+    result: task.result ?? '',
     column: (task.column as TaskColumn) ?? 'backlog',
     priority: (task.priority as TaskPriority) ?? 'medium',
     assignee: task.assignee ?? null,

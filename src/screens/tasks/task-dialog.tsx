@@ -25,6 +25,7 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [result, setResult] = useState('')
   const [column, setColumn] = useState<TaskColumn>(defaultColumn ?? 'backlog')
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [assignee, setAssignee] = useState<string>('')
@@ -37,6 +38,7 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
     if (task) {
       setTitle(task.title)
       setDescription(task.description)
+      setResult(task.result ?? '')
       setColumn(task.column)
       setPriority(task.priority)
       setAssignee(task.assignee ?? '')
@@ -47,6 +49,7 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
     } else {
       setTitle('')
       setDescription('')
+      setResult('')
       setColumn(defaultColumn ?? 'backlog')
       setPriority('medium')
       setAssignee('')
@@ -63,6 +66,7 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
     await onSubmit({
       title: title.trim(),
       description: description.trim(),
+      result: result.trim() || undefined,
       column,
       priority,
       assignee: assignee || null,
@@ -117,6 +121,17 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Optional details..."
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Result</label>
+              <textarea
+                className={cn(inputClass, 'resize-none')}
+                rows={4}
+                value={result}
+                onChange={e => setResult(e.target.value)}
+                placeholder="Outcome, findings, or agent output..."
               />
             </div>
 
