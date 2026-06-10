@@ -37,7 +37,7 @@ export function TaskCard({ task, assigneeLabels = {}, onClick, onDragStart, isDr
       onDragStart={onDragStart}
       onClick={onClick}
       className={cn(
-        'relative rounded-lg border p-3 cursor-pointer transition-all select-none',
+        'relative rounded-lg border p-2 cursor-pointer transition-all select-none',
         'bg-[var(--theme-card)] border-[var(--theme-border)]',
         task.is_blocked ? 'border-red-800/60' : 'hover:border-[var(--theme-accent)]',
         isDragging ? 'opacity-40 rotate-1 shadow-2xl' : 'hover:shadow-[0_4px_16px_rgba(0,0,0,0.35)]',
@@ -46,12 +46,12 @@ export function TaskCard({ task, assigneeLabels = {}, onClick, onDragStart, isDr
     >
       {/* Priority dot in top-right */}
       <span
-        className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full shrink-0"
+        className="absolute top-2 right-2 w-2 h-2 rounded-full shrink-0"
         style={{ background: priorityColor }}
         title={`Priority: ${task.priority}`}
       />
 
-      <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+      <div className="flex items-center gap-1 mb-1 flex-wrap">
         {task.lane === 'bug' && (
           <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', LANE_BADGE_STYLES.bug)}>
             🐛 Bug
@@ -64,43 +64,34 @@ export function TaskCard({ task, assigneeLabels = {}, onClick, onDragStart, isDr
         )}
       </div>
 
-      <p className="text-sm font-medium text-[var(--theme-text)] leading-snug mb-1 line-clamp-2 pr-4">
-        {task.title}
-      </p>
+      {/* Title — max 2 lines, truncated with ellipsis */}
+      <p className="text-xs font-medium text-[var(--theme-text)] leading-snug mb-1 line-clamp-2 pr-4 break-words" title={task.title}>{task.title}</p>
 
-      {task.description && (
-        <p className="text-xs text-[var(--theme-muted)] line-clamp-2 mb-2">
-          {task.description}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--theme-hover)] text-[var(--theme-muted)]">
-            {assigneeLabel}
+      <div className="flex items-center justify-between gap-1 mt-1 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap min-w-0">
+          <span className="text-[10px] px-1 py-0.5 rounded-md bg-[var(--theme-hover)] text-[var(--theme-muted)] truncate max-w-[80px]">
+            {task.assignee ?? 'Unassigned'}
           </span>
           {visibleTags.map((tag) => (
             <span
               key={tag}
-              className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--theme-hover)] text-[var(--theme-muted)]"
+              className="text-[10px] px-1 py-0.5 rounded-md bg-[var(--theme-hover)] text-[var(--theme-muted)] truncate max-w-[60px]"
             >
               {tag}
             </span>
           ))}
           {extraTagCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--theme-hover)] text-[var(--theme-muted)]">
-              +{extraTagCount} more
+            <span className="text-[10px] px-1 py-0.5 rounded-md bg-[var(--theme-hover)] text-[var(--theme-muted)]">
+              +{extraTagCount}
             </span>
           )}
         </div>
 
         {task.due_date && (
-          <div className="flex items-center gap-1 text-[10px] tabular-nums">
+          <div className="flex items-center gap-1 text-[10px] tabular-nums shrink-0">
             {overdue && (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                <span className="text-red-400 font-semibold">Overdue</span>
-                <span className="text-[var(--theme-muted)] mx-0.5">·</span>
               </>
             )}
             <span className={overdue ? 'text-red-400 font-semibold' : 'text-[var(--theme-muted)]'}>

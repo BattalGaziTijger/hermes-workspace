@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'motion/react'
@@ -23,7 +23,9 @@ import {
   fetchAssignees,
   fetchTasks,
   getTaskLane,
+  isOverdue,
   moveTask,
+  resetBackendResolution,
   updateTask,
 } from '@/lib/tasks-api'
 
@@ -56,13 +58,20 @@ export function TasksScreen() {
   const [dragOver, setDragOver] = useState<{ col: TaskColumn; lane: string } | null>(null)
   const [showDone, setShowDone] = useState(true)
 
+  // Reset backend resolution on mount so the correct backend (hermes vs claude)
+  // is re-probed fresh — avoids stale cached choice from an earlier empty state.
+  useEffect(() => {
+    resetBackendResolution()
+    void queryClient.invalidateQueries({ queryKey: ['claude', 'tasks'] })
+  }, [queryClient])
+
   const search = useSearch({ from: '/tasks' })
   const initialAssignee = typeof search.assignee === 'string' ? search.assignee : null
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(initialAssignee)
 
   const tasksQuery = useQuery({
-    queryKey: [...QUERY_KEY, showDone],
-    queryFn: () => fetchTasks({ include_done: showDone }),
+    queryKey: [...QUERY_KEY],
+    queryFn: () => fetchTasks({ include_done: true }),
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
   })
@@ -295,7 +304,7 @@ export function TasksScreen() {
             return (
               <div
                 key={col}
-                className="flex-1 min-w-[130px] flex items-center justify-between px-2 py-2 border-b border-r border-[var(--theme-border)]"
+                className="flex-1 min-w-[120px] flex items-center justify-between px-2 py-2 border-b border-r border-[var(--theme-border)] overflow-hidden"
                 style={{ borderTopWidth: 2, borderTopColor: colColor, borderTopStyle: 'solid' }}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -360,7 +369,7 @@ export function TasksScreen() {
                   <div
                     key={col}
                     className={cn(
-                      'flex-1 min-w-[130px] min-h-[120px] flex flex-col gap-1.5 p-1.5 border-r border-[var(--theme-border)]',
+                      'flex-1 min-w-[120px] min-h-[120px] flex flex-col gap-1.5 p-1.5 border-r border-[var(--theme-border)] overflow-hidden',
                       'transition-colors',
                       isOver && 'bg-[var(--theme-hover)] outline outline-2 outline-dashed outline-[var(--theme-accent)] outline-offset-[-2px]',
                     )}
