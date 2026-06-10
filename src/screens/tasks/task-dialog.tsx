@@ -248,7 +248,7 @@ export function TaskDialog({ open, onOpenChange, task, defaultColumn, assignees,
                   type="submit"
                   size="sm"
                   disabled={isSubmitting || !title.trim()}
-                  style={{ background: 'var(--theme-accent)', color: 'white' }}
+                  style={{ background: 'var(--theme-accent)', color: 'black' }}
                 >
                   {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Task'}
                 </Button>

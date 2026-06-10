@@ -56,7 +56,8 @@ export function TasksScreen() {
   const [editingTask, setEditingTask] = useState<ClaudeTask | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<{ col: TaskColumn; lane: string } | null>(null)
-  const [showDone, setShowDone] = useState(true)
+  const [showDone, setShowDone] = useState(false)
+  const [mobileCol, setMobileCol] = useState<TaskColumn>('backlog')
 
   // Reset backend resolution on mount so the correct backend (hermes vs claude)
   // is re-probed fresh — avoids stale cached choice from an earlier empty state.
@@ -214,6 +215,17 @@ export function TasksScreen() {
 
   const visibleColumns = showDone ? COLUMN_ORDER : COLUMN_ORDER.filter(c => c !== 'done')
 
+  function normalizeCol(col: string): TaskColumn {
+    if (col === 'todo') return 'refinement'
+    if (col === 'in_progress') return 'inprogress'
+    return col as TaskColumn
+  }
+
+  const mobileColTasks = tasks.filter(t => {
+    const col = normalizeCol(t.column)
+    return col === mobileCol
+  })
+
   return (
     <div className="min-h-full overflow-y-auto bg-surface text-ink">
       <div className="mx-auto flex w-full flex-col gap-5 px-4 py-6 pb-[calc(var(--tabbar-h,80px)+1.5rem)] sm:px-6 lg:px-8">
@@ -277,7 +289,7 @@ export function TasksScreen() {
           </button>
           <button
             onClick={() => { setCreateColumn('backlog'); setShowCreate(true) }}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-black transition-opacity hover:opacity-90"
             style={{ background: 'var(--theme-accent)' }}
           >
             <HugeiconsIcon icon={Add01Icon} size={14} />
@@ -290,9 +302,68 @@ export function TasksScreen() {
         </p>
       </header>
 
-      {/* Board — matrix: swim lane rows × columns */}
+      {/* Mobile board — column tabs + task list */}
+      <div className="block sm:hidden">
+        {/* Column selector tabs */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          {visibleColumns.map(col => {
+            const count = tasks.filter(t => normalizeCol(t.column) === col).length
+            const isActive = mobileCol === col
+            return (
+              <button
+                key={col}
+                onClick={() => setMobileCol(col)}
+                className={cn(
+                  'flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors border-t-2 whitespace-nowrap',
+                  isActive
+                    ? 'bg-[var(--theme-card)] text-[var(--theme-text)] border-[var(--theme-accent)]'
+                    : 'bg-[var(--theme-hover)] text-[var(--theme-muted)] border-transparent hover:text-[var(--theme-text)]',
+                )}
+                style={isActive ? { borderTopColor: COLUMN_COLORS[col] } : {}}
+              >
+                {COLUMN_LABELS[col]}
+                {count > 0 && <span className="ml-1 opacity-60">({count})</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Tasks in selected column */}
+        <div className="space-y-2">
+          {tasksQuery.isLoading ? (
+            <><SkeletonCard /><SkeletonCard /></>
+          ) : mobileColTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-[var(--theme-muted)] opacity-40">
+              <HugeiconsIcon icon={CheckListIcon} size={24} />
+              <p className="text-xs">No tasks in this column</p>
+            </div>
+          ) : (
+            <AnimatePresence initial={false}>
+              {mobileColTasks.map(task => (
+                <motion.div
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                >
+                  <TaskCard
+                    task={task}
+                    assigneeLabels={assigneeLabels}
+                    isDragging={false}
+                    onDragStart={() => {}}
+                    onClick={() => setEditingTask(task)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop board — matrix: swim lane rows × columns */}
       <div
-        className="w-full overflow-x-auto rounded-2xl"
+        className="hidden sm:block w-full overflow-x-auto rounded-2xl"
         style={{ boxShadow: 'inset 0 8px 24px rgba(0,0,0,0.2)' }}
       >
         {/* Column header row */}

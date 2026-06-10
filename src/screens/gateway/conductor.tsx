@@ -1161,7 +1161,7 @@ export function Conductor() {
                         conductor.setSelectedHistoryEntry(null)
                         handleNewMission()
                       }}
-                      className="rounded-xl bg-[var(--theme-accent)] px-5 text-white hover:bg-[var(--theme-accent-strong)]"
+                      className="rounded-xl bg-[var(--theme-accent)] px-5 text-black hover:bg-[var(--theme-accent-strong)]"
                     >
                       New Mission
                     </Button>
@@ -1334,7 +1334,7 @@ export function Conductor() {
                   <button
                     type="button"
                     onClick={() => setMissionModalOpen(true)}
-                    className="inline-flex items-center justify-center rounded-xl bg-[var(--theme-accent)] p-2 text-white shadow-sm transition-colors hover:bg-[var(--theme-accent-strong)]"
+                    className="inline-flex items-center justify-center rounded-xl bg-[var(--theme-accent)] p-2 text-black shadow-sm transition-colors hover:bg-[var(--theme-accent-strong)]"
                     aria-label="New Mission"
                   >
                     <HugeiconsIcon icon={Rocket01Icon} size={18} strokeWidth={1.7} />
@@ -1555,7 +1555,7 @@ export function Conductor() {
                   />
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={!goalDraft.trim() || conductor.isSending} className="rounded-full bg-[var(--theme-accent)] px-5 text-white hover:bg-[var(--theme-accent-strong)]">
+                    <Button type="submit" disabled={!goalDraft.trim() || conductor.isSending} className="rounded-full bg-[var(--theme-accent)] px-5 text-black hover:bg-[var(--theme-accent-strong)]">
                       {conductor.isSending ? 'Launching...' : 'Launch Mission'}
                       <HugeiconsIcon icon={ArrowRight01Icon} size={16} strokeWidth={1.7} />
                     </Button>
@@ -1816,7 +1816,7 @@ export function Conductor() {
                         updateSettings({ projectsDir: directoryBrowserPath })
                         closeDirectoryBrowser()
                       }}
-                      className="rounded-xl bg-[var(--theme-accent)] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[var(--theme-accent-strong)]"
+                      className="rounded-xl bg-[var(--theme-accent)] px-4 py-3 text-sm font-medium text-black transition-colors hover:bg-[var(--theme-accent-strong)]"
                     >
                       Select This Directory
                     </button>
@@ -1947,7 +1947,7 @@ export function Conductor() {
                     >
                       Retry Mission
                     </Button>
-                    <Button type="button" onClick={handleNewMission} className="rounded-xl bg-[var(--theme-accent)] px-4 text-white hover:bg-[var(--theme-accent-strong)]">
+                    <Button type="button" onClick={handleNewMission} className="rounded-xl bg-[var(--theme-accent)] px-4 text-black hover:bg-[var(--theme-accent-strong)]">
                       New Mission
                     </Button>
                   </div>
@@ -1976,7 +1976,7 @@ export function Conductor() {
                       Continue
                     </Button>
                   ) : null}
-                  <Button type="button" onClick={handleNewMission} className="rounded-xl bg-[var(--theme-accent)] px-5 text-white hover:bg-[var(--theme-accent-strong)]">
+                  <Button type="button" onClick={handleNewMission} className="rounded-xl bg-[var(--theme-accent)] px-5 text-black hover:bg-[var(--theme-accent-strong)]">
                     New Mission
                   </Button>
                 </div>
